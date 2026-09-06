@@ -41,5 +41,7 @@ jobs:
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ''
+          # Verbose so a failed OIDC token exchange says why instead of a bare ENEEDAUTH.
+          NPM_CONFIG_LOGLEVEL: verbose
 
       - run: git push --follow-tags
