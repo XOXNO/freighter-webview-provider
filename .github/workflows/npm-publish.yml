@@ -13,53 +13,33 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
-  test:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v6
-        with:
-          node-version: '24'
-          cache: npm
-      - run: npm ci
-      - run: npm run lint
-      - run: npm test
-
-  bump-version:
-    needs: test
+  # Bump, publish, then push the bump: a failed publish leaves main untouched instead of burning a version per retry.
+  publish:
     runs-on: ubuntu-latest
     permissions:
       contents: write
-    steps:
-      - uses: actions/checkout@v4
-
-      - run: |
-          git config user.name "github-actions[bot]"
-          git config user.email "github-actions[bot]@users.noreply.github.com"
-
-      # The bump commit message carries [skip ci] so pushing it back does not trigger this workflow again.
-      - run: |
-          npm version patch -m "chore(release): %s [skip ci]"
-
-      - run: git push --follow-tags
-
-  publish:
-    needs: bump-version
-    runs-on: ubuntu-latest
-    permissions:
       id-token: write
-      contents: read
     steps:
       - uses: actions/checkout@v4
-        with:
-          ref: main
 
       - uses: actions/setup-node@v6
         with:
           node-version: '24'
           registry-url: 'https://registry.npmjs.org'
+          cache: npm
+
       - run: npm ci
+      - run: npm run lint
+      - run: npm test
+
+      - run: |
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+          npm version patch -m "chore(release): %s [skip ci]"
+
       # prepack runs the build; trusted publishing (OIDC) needs no token.
       - run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ''
+
+      - run: git push --follow-tags
