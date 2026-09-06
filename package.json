@@ -1,0 +1,33 @@
+{
+  "name": "@xoxno/freighter-webview-provider",
+  "version": "0.1.0",
+  "description": "Freighter mobile in-app wallet provider",
+  "license": "Apache-2.0",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/xoxno/freighter-webview-provider.git"
+  },
+  "homepage": "https://github.com/xoxno/freighter-webview-provider#readme",
+  "bugs": "https://github.com/xoxno/freighter-webview-provider/issues",
+  "publishConfig": {
+    "access": "public"
+  },
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "files": [
+    "dist",
+    "README.md"
+  ],
+  "sideEffects": false,
+  "scripts": {
+    "build": "node -e \"require('fs').rmSync('dist',{recursive:true,force:true})\" && tsc -p tsconfig.json",
+    "lint": "prettier --check . && tsc -p tsconfig.json --noEmit",
+    "format": "prettier --write .",
+    "test": "npm run build && node --test test/*.test.cjs",
+    "prepack": "npm run build"
+  },
+  "devDependencies": {
+    "prettier": "3.9.6",
+    "typescript": "5.8.3"
+  }
+}
