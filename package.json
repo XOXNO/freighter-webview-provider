@@ -5,10 +5,10 @@
   "license": "Apache-2.0",
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/xoxno/freighter-webview-provider.git"
+    "url": "git+https://github.com/XOXNO/freighter-webview-provider.git"
   },
-  "homepage": "https://github.com/xoxno/freighter-webview-provider#readme",
-  "bugs": "https://github.com/xoxno/freighter-webview-provider/issues",
+  "homepage": "https://github.com/XOXNO/freighter-webview-provider#readme",
+  "bugs": "https://github.com/XOXNO/freighter-webview-provider/issues",
   "publishConfig": {
     "access": "public"
   },
