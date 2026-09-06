@@ -104,7 +104,7 @@ npm pack
 needed.
 
 CI (`.github/workflows/ci.yml`) runs `npm test` on every pull request. Every
-push to `main` runs `.github/workflows/npm-publish.yml`: it bumps the patch
+push to `main` runs `.github/workflows/publish.yml`: it bumps the patch
 version, pushes the bump commit, and publishes to npm with provenance. Never
 bump the version by hand; the workflow owns it. Publishing uses npm trusted
 publishing (OIDC), so the `@xoxno/freighter-webview-provider` package must list
