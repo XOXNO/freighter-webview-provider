@@ -45,20 +45,31 @@ the account, so a signer that changed in the wallet cannot be trusted by
 accident. Disconnect clears the document connection, not the wallet.
 
 `FreighterWebViewProvider.getInstance()` returns one shared provider per page.
-To decide which login tiles to render before `init()` resolves, read the beacon
-synchronously: `window.stellar?.provider === 'freighter' &&
-window.stellar?.platform === 'mobile'`. Production Freighter ships the beacon
-without the bridge, so keep a fallback flow behind it.
+`isFreighterWebView()` answers synchronously whether the page runs inside a
+bridged Freighter WebView, so you can pick login tiles before `init()`
+resolves. Production Freighter ships a beacon-only `window.stellar` without the
+bridge; `isFreighterWebView()` is false there, so keep a fallback flow behind
+it.
 
 Subscribe with `on(event, listener)` and remove the same callback with `off`
-when your component unmounts. `accountsChanged` and `chainChanged` carry the
-full account context; `disconnect` carries `{ code, message }`. Subscribe before
-or after init.
+when your component unmounts. `EVENT.ACCOUNTS_CHANGED` and `EVENT.CHAIN_CHANGED`
+carry the full account context; `EVENT.DISCONNECT` carries `{ code, message }`.
+Subscribe before or after init.
+
+Every string on the wire is an exported constant: `METHOD`, `EVENT`,
+`ERROR_CODE`, `CHAIN_ID`, `NETWORK_PASSPHRASE`, `CHAIN_ID_BY_PASSPHRASE`,
+`PROTOCOL`, `PROTOCOL_VERSION`, and the wallet limits `MAX_MESSAGE_BYTES`,
+`MAX_ENVELOPE_BYTES`, `REQUEST_DEADLINE_MS`. The matching types (`Method`,
+`ProviderEvent`, `ErrorCode`, `ChainId`, `RequestMap`, `EventMap`, the result
+types) are derived from them, so a code compiled against the constants cannot
+drift from the wallet.
 
 Every failure is thrown as a `WebViewProviderError` (an `Error` subclass with
-the original bridge rejection as `cause`) whose `code` is one of `UNAVAILABLE`, `INVALID_PARAMS`,
-`UNSUPPORTED_METHOD`, `UNSUPPORTED_VERSION`, `WALLET_LOCKED`, `WRONG_NETWORK`,
-`USER_REJECTED`, `BUSY`, `CONTEXT_CHANGED`, `NOT_CONNECTED`, or `TIMEOUT`. The
+the original bridge rejection as `cause`) whose `code` is one of `ERROR_CODE`:
+`UNAVAILABLE`, `INVALID_PARAMS`, `UNSUPPORTED_METHOD`, `UNSUPPORTED_VERSION`,
+`WALLET_LOCKED`, `WRONG_NETWORK`, `USER_REJECTED`, `BUSY`, `CONTEXT_CHANGED`,
+`NOT_CONNECTED`, or `TIMEOUT`; anything the wallet rejects with that the SDK does
+not know becomes `UNAVAILABLE` with the original as `cause`. The
 injected wallet bridge correlates individual requests, limits envelopes to 1 MiB
 and operations to five minutes. Messages retain the 1 KiB limit. The SDK does
 not retry signing or submission. A submission timeout has an unknown outcome;

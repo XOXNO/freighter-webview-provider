@@ -1,12 +1,16 @@
 const assert = require('node:assert/strict');
 const { test, afterEach } = require('node:test');
 const {
+  ERROR_CODE,
+  EVENT,
   FreighterWebViewProvider,
+  METHOD,
   WebViewProviderError,
+  isFreighterWebView,
 } = require('../dist/index.js');
 
 afterEach(() => {
-  delete global.window;
+  delete globalThis.stellar;
 });
 
 const install = (request) => {
@@ -25,14 +29,23 @@ const install = (request) => {
     },
     off: (event, listener) => listeners.get(event)?.delete(listener),
   };
-  global.window = { stellar: bridge };
+  globalThis.stellar = bridge;
   return { bridge, listeners };
 };
 
 test('SSR import and discovery are safe; requests require init', async () => {
   const provider = new FreighterWebViewProvider();
+  assert.equal(isFreighterWebView(), false);
   assert.equal(await provider.init(), false);
-  await assert.rejects(provider.connect(), { code: 'UNAVAILABLE' });
+  await assert.rejects(provider.connect(), { code: ERROR_CODE.UNAVAILABLE });
+  // Production Freighter ships the beacon without a bridge; it is not a WebView the SDK can use.
+  globalThis.stellar = {
+    provider: 'freighter',
+    platform: 'mobile',
+    version: '1',
+  };
+  assert.equal(isFreighterWebView(), false);
+  assert.equal(await provider.init(), false);
 });
 
 test('all methods preserve transport payloads and results', async () => {
@@ -43,39 +56,40 @@ test('all methods preserve transport payloads and results', async () => {
     networkPassphrase: 'Test SDF Network ; September 2015',
   };
   const cases = [
-    ['connect', undefined, 'freighter_connect', account],
-    ['getAccount', undefined, 'freighter_getAccount', account],
+    ['connect', undefined, METHOD.CONNECT, account],
+    ['getAccount', undefined, METHOD.GET_ACCOUNT, account],
     [
       'signXDR',
       { xdr: 'xdr', chainId: account.chainId },
-      'stellar_signXDR',
+      METHOD.SIGN_XDR,
       { signedXDR: 'signed' },
     ],
     [
       'signAndSubmitXDR',
       { xdr: 'xdr', chainId: account.chainId },
-      'stellar_signAndSubmitXDR',
+      METHOD.SIGN_AND_SUBMIT_XDR,
       { status: 'success' },
     ],
     [
       'signMessage',
       { message: 'message', chainId: account.chainId },
-      'stellar_signMessage',
+      METHOD.SIGN_MESSAGE,
       { signature: 'signature' },
     ],
     [
       'signAuthEntry',
       { entryXdr: 'entry', chainId: account.chainId },
-      'stellar_signAuthEntry',
+      METHOD.SIGN_AUTH_ENTRY,
       { signedAuthEntry: 'signed', signerAddress: 'GACCOUNT' },
     ],
-    ['disconnect', undefined, 'freighter_disconnect', undefined],
+    ['disconnect', undefined, METHOD.DISCONNECT, undefined],
   ];
   install((input) => {
     calls.push(input);
     return cases.find((item) => item[2] === input.method)[3];
   });
   const provider = new FreighterWebViewProvider();
+  assert.equal(isFreighterWebView(), true);
   assert.equal(await provider.init(), true);
   for (const [method, params, nativeMethod, result] of cases) {
     assert.deepEqual(await provider[method](params), result);
@@ -98,14 +112,14 @@ test('concurrent operations keep their own results and errors are not retried', 
     message: 'second',
     chainId: 'stellar:testnet',
   });
-  const error = { code: 'USER_REJECTED', message: 'Rejected' };
+  const error = { code: ERROR_CODE.USER_REJECTED, message: 'Rejected' };
   pending[1].reject(error);
   // Bridge rejections are plain objects; the SDK normalizes them into typed Errors that keep the original as cause.
   await assert.rejects(
     second,
     (value) =>
       value instanceof WebViewProviderError &&
-      value.code === 'USER_REJECTED' &&
+      value.code === ERROR_CODE.USER_REJECTED &&
       value.message === 'Rejected' &&
       value.cause === error,
   );
@@ -114,21 +128,40 @@ test('concurrent operations keep their own results and errors are not retried', 
   assert.equal(pending.length, 2);
 });
 
+test('unknown rejections normalize to UNAVAILABLE and keep their cause', async () => {
+  const causes = [new Error('boom'), { code: 'NEW_CODE' }, 'string', null];
+  install((input) => Promise.reject(causes[Number(input.params.message)]));
+  const provider = new FreighterWebViewProvider();
+  await provider.init();
+  for (const [index, cause] of causes.entries()) {
+    await assert.rejects(
+      provider.signMessage({
+        message: String(index),
+        chainId: 'stellar:testnet',
+      }),
+      (value) =>
+        value instanceof WebViewProviderError &&
+        value.code === ERROR_CODE.UNAVAILABLE &&
+        value.cause === cause,
+    );
+  }
+});
+
 test('event subscriptions survive discovery, deduplicate and unsubscribe', async () => {
   const { listeners } = install(() => undefined);
   const provider = new FreighterWebViewProvider();
   const seen = [];
   const listener = (value) => seen.push(value);
-  provider.on('accountsChanged', listener);
+  provider.on(EVENT.ACCOUNTS_CHANGED, listener);
   await provider.init();
-  provider.on('accountsChanged', listener);
-  assert.equal(listeners.get('accountsChanged').size, 1);
+  provider.on(EVENT.ACCOUNTS_CHANGED, listener);
+  assert.equal(listeners.get(EVENT.ACCOUNTS_CHANGED).size, 1);
   listeners
-    .get('accountsChanged')
+    .get(EVENT.ACCOUNTS_CHANGED)
     .forEach((callback) => callback({ address: 'GNEW' }));
   assert.deepEqual(seen, [{ address: 'GNEW' }]);
-  provider.off('accountsChanged', listener);
-  assert.equal(listeners.get('accountsChanged').size, 0);
+  provider.off(EVENT.ACCOUNTS_CHANGED, listener);
+  assert.equal(listeners.get(EVENT.ACCOUNTS_CHANGED).size, 0);
 });
 
 test('an unactivated or foreign bridge is unavailable, even with a matching shape', async () => {
@@ -139,8 +172,8 @@ test('an unactivated or foreign bridge is unavailable, even with a matching shap
   bridge.protocolVersion = 1;
   bridge.documentToken = '';
   assert.equal(await provider.init(), false);
-  await assert.rejects(provider.connect(), { code: 'UNAVAILABLE' });
-  global.window = { stellar: { ...bridge, provider: 'other' } };
+  await assert.rejects(provider.connect(), { code: ERROR_CODE.UNAVAILABLE });
+  globalThis.stellar = { ...bridge, provider: 'other' };
   assert.equal(await provider.init(), false);
 });
 
@@ -160,7 +193,7 @@ test('discovery waits for late activation and gives up after two seconds', async
 });
 
 test('getInstance shares one provider', async () => {
-  delete global.window;
+  delete globalThis.stellar;
   const first = FreighterWebViewProvider.getInstance();
   assert.equal(FreighterWebViewProvider.getInstance(), first);
   assert.equal(await first.init(), false);
@@ -175,7 +208,7 @@ test('connect passes a wallet-provided SEP-10 auth through untouched', async () 
     webAuthEndpoint: 'https://api.xoxno.com/user/stellar/challenge',
   };
   install((input) =>
-    input.method === 'freighter_connect'
+    input.method === METHOD.CONNECT
       ? {
           address: 'GA',
           chainId: 'stellar:pubnet',

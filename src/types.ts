@@ -1,6 +1,20 @@
-import type { ErrorCode } from './errors';
+import {
+  CHAIN_ID,
+  ERROR_CODE,
+  EVENT,
+  METHOD,
+  NETWORK_PASSPHRASE,
+  PLATFORM,
+  PROVIDER,
+} from './constants';
 
-export type ChainId = 'stellar:pubnet' | 'stellar:testnet';
+type ValueOf<T> = T[keyof T];
+
+export type ChainId = ValueOf<typeof CHAIN_ID>;
+export type NetworkPassphrase = ValueOf<typeof NETWORK_PASSPHRASE>;
+export type Method = ValueOf<typeof METHOD>;
+export type ProviderEvent = ValueOf<typeof EVENT>;
+export type ErrorCode = ValueOf<typeof ERROR_CODE>;
 
 export interface Account {
   address: string;
@@ -23,7 +37,9 @@ export interface Sep10Auth {
   webAuthEndpoint: string;
 }
 
-export type ConnectResult = Account & { auth?: Sep10Auth };
+export interface ConnectResult extends Account {
+  auth?: Sep10Auth;
+}
 
 export interface XDRParams {
   xdr: string;
@@ -40,49 +56,79 @@ export interface AuthEntryParams {
   chainId: ChainId;
 }
 
-/** Every bridge method with its params and result, in the wallet's own names. */
+export interface SignXDRResult {
+  signedXDR: string;
+}
+
+export interface SubmitResult {
+  status: 'success';
+}
+
+export interface SignMessageResult {
+  signature: string;
+}
+
+export interface SignAuthEntryResult {
+  signedAuthEntry: string;
+  signerAddress: string;
+}
+
+/** Every bridge method with its params and result. */
 export interface RequestMap {
-  freighter_connect: { params: undefined; result: ConnectResult };
-  freighter_getAccount: { params: undefined; result: Account };
-  freighter_disconnect: { params: undefined; result: unknown };
-  stellar_signXDR: { params: XDRParams; result: { signedXDR: string } };
-  stellar_signAndSubmitXDR: {
-    params: XDRParams;
-    result: { status: 'success' };
-  };
-  stellar_signMessage: { params: MessageParams; result: { signature: string } };
-  stellar_signAuthEntry: {
+  [METHOD.CONNECT]: { params: undefined; result: ConnectResult };
+  [METHOD.GET_ACCOUNT]: { params: undefined; result: Account };
+  [METHOD.DISCONNECT]: { params: undefined; result: boolean };
+  [METHOD.SIGN_XDR]: { params: XDRParams; result: SignXDRResult };
+  [METHOD.SIGN_AND_SUBMIT_XDR]: { params: XDRParams; result: SubmitResult };
+  [METHOD.SIGN_MESSAGE]: { params: MessageParams; result: SignMessageResult };
+  [METHOD.SIGN_AUTH_ENTRY]: {
     params: AuthEntryParams;
-    result: { signedAuthEntry: string; signerAddress: string };
+    result: SignAuthEntryResult;
   };
 }
 
-export type RequestMethod = keyof RequestMap;
+export type MethodParams<M extends Method> = RequestMap[M]['params'];
+export type MethodResult<M extends Method> = RequestMap[M]['result'];
+
+/** Rejection shape the wallet bridge uses; normalized to `WebViewProviderError` at the SDK boundary. */
+export interface BridgeError {
+  code: ErrorCode;
+  message: string;
+}
 
 export interface EventMap {
-  accountsChanged: Account;
-  chainChanged: Account;
-  disconnect: { code: ErrorCode; message: string };
+  [EVENT.ACCOUNTS_CHANGED]: Account;
+  [EVENT.CHAIN_CHANGED]: Account;
+  [EVENT.DISCONNECT]: BridgeError;
 }
 
-export type ProviderEvent = keyof EventMap;
-
-export type EventListener<E extends ProviderEvent = ProviderEvent> = (
+export type ProviderListener<E extends ProviderEvent> = (
   data: EventMap[E],
 ) => void;
 
+/** What production Freighter installs on every page: identity only, no bridge. */
+export interface Beacon {
+  readonly provider: typeof PROVIDER;
+  readonly platform: typeof PLATFORM;
+  readonly version: string;
+}
+
 /**
- * Shape of `window.stellar`. The transport (request correlation, size limits,
- * 5-minute deadlines) lives in the wallet's injected bootstrap; `protocolVersion`
+ * `window.stellar` once the wallet's bootstrap ran. The transport (request
+ * correlation, size limits, deadlines) lives in that bootstrap; `protocolVersion`
  * and `documentToken` appear only once the wallet activates the document.
  */
-export interface InjectedBridge {
-  provider: string;
-  platform: string;
-  version: string;
-  protocolVersion?: number;
-  documentToken?: string;
-  request(input: { method: string; params?: unknown }): Promise<unknown>;
-  on(event: ProviderEvent, listener: (data: never) => void): void;
-  off(event: ProviderEvent, listener: (data: never) => void): void;
+export interface InjectedBridge extends Beacon {
+  readonly protocolVersion?: number;
+  readonly documentToken?: string;
+  request<M extends Method>(input: {
+    method: M;
+    params?: MethodParams<M>;
+  }): Promise<MethodResult<M>>;
+  on<E extends ProviderEvent>(event: E, listener: ProviderListener<E>): void;
+  off<E extends ProviderEvent>(event: E, listener: ProviderListener<E>): void;
 }
+
+export type WalletGlobal = typeof globalThis & {
+  stellar?: Beacon | InjectedBridge;
+};

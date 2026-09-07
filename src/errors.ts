@@ -1,48 +1,32 @@
-/** Wallet error codes; the union stays open so a newer wallet can add codes without breaking callers. */
-export type ErrorCode =
-  | 'UNAVAILABLE'
-  | 'INVALID_PARAMS'
-  | 'UNSUPPORTED_METHOD'
-  | 'UNSUPPORTED_VERSION'
-  | 'WALLET_LOCKED'
-  | 'WRONG_NETWORK'
-  | 'USER_REJECTED'
-  | 'BUSY'
-  | 'CONTEXT_CHANGED'
-  | 'NOT_CONNECTED'
-  | 'TIMEOUT'
-  | (string & {});
+import { ERROR_CODE } from './constants';
+import type { BridgeError, ErrorCode } from './types';
 
 export class WebViewProviderError extends Error {
-  readonly code: ErrorCode;
+  override readonly name = 'WebViewProviderError';
 
-  readonly cause?: unknown;
-
-  constructor(code: ErrorCode, message: string, cause?: unknown) {
+  constructor(
+    readonly code: ErrorCode,
+    message: string,
+    readonly cause?: unknown,
+  ) {
     super(message);
-    this.name = 'WebViewProviderError';
-    this.code = code;
-    this.cause = cause;
   }
 }
 
+const KNOWN_CODES = new Set<unknown>(Object.values(ERROR_CODE));
+
 /**
- * The bridge rejects with plain `{ code, message }` objects (no stack, not an
- * `Error`). Normalize once at the SDK boundary so callers can rely on
- * `instanceof` and a stable `code`; anything unrecognizable becomes UNAVAILABLE.
+ * The bridge rejects with plain `{ code, message }` objects (not `Error`s).
+ * Normalize once at the SDK boundary so callers can rely on `instanceof` and a
+ * stable `code`; anything else becomes UNAVAILABLE with the original as `cause`.
  */
 export const toProviderError = (cause: unknown): WebViewProviderError => {
-  if (cause && typeof cause === 'object' && 'code' in cause) {
-    const { code, message } = cause as { code: unknown; message?: unknown };
-    if (typeof code === 'string' && code)
-      return new WebViewProviderError(
-        code,
-        typeof message === 'string' ? message : code,
-        cause,
-      );
+  const { code, message } = (cause ?? {}) as Partial<BridgeError>;
+  if (code && KNOWN_CODES.has(code)) {
+    return new WebViewProviderError(code, message ?? code, cause);
   }
   return new WebViewProviderError(
-    'UNAVAILABLE',
+    ERROR_CODE.UNAVAILABLE,
     cause instanceof Error ? cause.message : 'Wallet bridge unavailable',
     cause,
   );

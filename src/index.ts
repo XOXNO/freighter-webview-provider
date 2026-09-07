@@ -1,15 +1,28 @@
+export * from './constants';
 export { WebViewProviderError } from './errors';
-export type { ErrorCode } from './errors';
-export { FreighterWebViewProvider } from './provider';
+export { FreighterWebViewProvider, isFreighterWebView } from './provider';
 export type {
   Account,
   AuthEntryParams,
+  Beacon,
+  BridgeError,
   ChainId,
   ConnectResult,
-  EventListener,
+  ErrorCode,
   EventMap,
+  InjectedBridge,
   MessageParams,
+  Method,
+  MethodParams,
+  MethodResult,
+  NetworkPassphrase,
   ProviderEvent,
+  ProviderListener,
+  RequestMap,
   Sep10Auth,
+  SignAuthEntryResult,
+  SignMessageResult,
+  SignXDRResult,
+  SubmitResult,
   XDRParams,
 } from './types';
