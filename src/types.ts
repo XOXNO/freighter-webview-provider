@@ -42,10 +42,6 @@ export interface AuthEntryParams {
 
 /** Every bridge method with its params and result, in the wallet's own names. */
 export interface RequestMap {
-  freighter_getCapabilities: {
-    params: undefined;
-    result: { protocolVersion: number };
-  };
   freighter_connect: { params: undefined; result: ConnectResult };
   freighter_getAccount: { params: undefined; result: Account };
   freighter_disconnect: { params: undefined; result: unknown };
@@ -76,17 +72,16 @@ export type EventListener<E extends ProviderEvent = ProviderEvent> = (
 ) => void;
 
 /**
- * Shape of `window.stellar` once the wallet activates the document. The
- * transport (request correlation, size limits, 5-minute deadlines) lives in the
- * wallet's injected bootstrap, so the SDK never touches
- * `ReactNativeWebView.postMessage` or `message` events itself.
+ * Shape of `window.stellar`. The transport (request correlation, size limits,
+ * 5-minute deadlines) lives in the wallet's injected bootstrap; `protocolVersion`
+ * and `documentToken` appear only once the wallet activates the document.
  */
 export interface InjectedBridge {
   provider: string;
   platform: string;
   version: string;
-  protocolVersion: 1;
-  documentToken: string;
+  protocolVersion?: number;
+  documentToken?: string;
   request(input: { method: string; params?: unknown }): Promise<unknown>;
   on(event: ProviderEvent, listener: (data: never) => void): void;
   off(event: ProviderEvent, listener: (data: never) => void): void;

@@ -8,11 +8,8 @@ export type {
   ConnectResult,
   EventListener,
   EventMap,
-  InjectedBridge,
   MessageParams,
   ProviderEvent,
-  RequestMap,
-  RequestMethod,
   Sep10Auth,
   XDRParams,
 } from './types';

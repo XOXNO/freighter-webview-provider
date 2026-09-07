@@ -17,10 +17,7 @@ const install = (request) => {
     version: '1.0.0',
     protocolVersion: 1,
     documentToken: 'document-1',
-    request: async (input) =>
-      input.method === 'freighter_getCapabilities'
-        ? { protocolVersion: 1 }
-        : request(input),
+    request: async (input) => request(input),
     on: (event, listener) => {
       const current = listeners.get(event) ?? new Set();
       current.add(listener);
@@ -134,46 +131,29 @@ test('event subscriptions survive discovery, deduplicate and unsubscribe', async
   assert.equal(listeners.get('accountsChanged').size, 0);
 });
 
-test('replaced document bridge rejects requests until rediscovery', async () => {
-  const old = install(() => undefined);
-  const provider = new FreighterWebViewProvider();
-  const listener = () => {};
-  provider.on('disconnect', listener);
-  await provider.init();
-  const next = install(() => undefined);
-  await assert.rejects(provider.connect(), { code: 'UNAVAILABLE' });
-  assert.equal(await provider.init(), true);
-  assert.equal(old.listeners.get('disconnect').size, 0);
-  assert.equal(next.listeners.get('disconnect').size, 1);
-});
-
-test('capability negotiation fails closed and concurrent init is shared', async () => {
+test('an unactivated or foreign bridge is unavailable, even with a matching shape', async () => {
   const { bridge } = install(() => undefined);
-  let calls = 0;
-  bridge.request = async () => {
-    calls += 1;
-    return { protocolVersion: 2 };
-  };
+  bridge.protocolVersion = 2;
   const provider = new FreighterWebViewProvider();
-  assert.deepEqual(await Promise.all([provider.init(), provider.init()]), [
-    false,
-    false,
-  ]);
-  assert.equal(calls, 1);
+  assert.equal(await provider.init(), false);
+  bridge.protocolVersion = 1;
+  bridge.documentToken = '';
+  assert.equal(await provider.init(), false);
+  await assert.rejects(provider.connect(), { code: 'UNAVAILABLE' });
+  global.window = { stellar: { ...bridge, provider: 'other' } };
+  assert.equal(await provider.init(), false);
 });
 
-test('discovery recovers delayed injection', async () => {
-  global.window = {};
+test('discovery waits for late activation and gives up after two seconds', async () => {
+  const { bridge } = install(() => undefined);
+  bridge.documentToken = '';
   const provider = new FreighterWebViewProvider();
   const pending = provider.init();
-  setTimeout(() => install(() => undefined), 30);
+  setTimeout(() => {
+    bridge.documentToken = 'document-2';
+  }, 30);
   assert.equal(await pending, true);
-});
-
-test('capability request cannot hang discovery beyond two seconds', async () => {
-  const { bridge } = install(() => undefined);
-  bridge.request = () => new Promise(() => {});
-  const provider = new FreighterWebViewProvider();
+  bridge.documentToken = '';
   const start = Date.now();
   assert.equal(await provider.init(), false);
   assert.ok(Date.now() - start < 3000);

@@ -17,8 +17,8 @@ if (await wallet.init()) {
 }
 ```
 
-`init()` negotiates protocol version 1 and returns availability within two
-seconds. Call it before other methods. `connect()` returns the selected account
+`init()` resolves true once the wallet has activated the document (within two
+seconds), false anywhere else. Call it before other methods. `connect()` returns the selected account
 without pairing or a connection approval; risky sites and failed scans still
 require warning acknowledgment. Every signing request requires native approval.
 Connecting a wallet does not authenticate a website session by itself. When the
@@ -88,8 +88,8 @@ is never used.
 - Every request carries the per-document token; a navigation, origin change or
   wallet context change invalidates the token and rejects pending requests with
   `CONTEXT_CHANGED`.
-- The SDK negotiates `freighter_getCapabilities` before it trusts a bridge, and
-  refuses requests if `window.stellar` was replaced since negotiation.
+- The SDK keeps no state of its own: every call reads `window.stellar` and
+  refuses to talk to anything but a wallet-activated protocol version 1 bridge.
 - Origin allow-listing on the page side is unnecessary: the page cannot receive
   a reply the wallet did not address to its own token, and the wallet enforces
   origins itself.
