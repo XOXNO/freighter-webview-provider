@@ -8,6 +8,23 @@ export interface Account {
   networkPassphrase: string;
 }
 
+/**
+ * A SEP-10 challenge the wallet fetched from the site's own
+ * `/.well-known/stellar.toml` WEB_AUTH_ENDPOINT, verified against its
+ * SIGNING_KEY and countersigned without a prompt. Present on `connect()` only
+ * when the wallet allows silent sign-in for the document; verify it locally
+ * and submit it to your session endpoint like a challenge you fetched yourself.
+ */
+export interface Sep10Auth {
+  challengeXdr: string;
+  signedXdr: string;
+  networkPassphrase: string;
+  homeDomain: string;
+  webAuthEndpoint: string;
+}
+
+export type ConnectResult = Account & { auth?: Sep10Auth };
+
 export interface XDRParams {
   xdr: string;
   chainId: ChainId;
@@ -29,7 +46,7 @@ export interface RequestMap {
     params: undefined;
     result: { protocolVersion: number };
   };
-  freighter_connect: { params: undefined; result: Account };
+  freighter_connect: { params: undefined; result: ConnectResult };
   freighter_getAccount: { params: undefined; result: Account };
   freighter_disconnect: { params: undefined; result: unknown };
   stellar_signXDR: { params: XDRParams; result: { signedXDR: string } };

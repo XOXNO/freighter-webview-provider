@@ -21,16 +21,23 @@ if (await wallet.init()) {
 seconds. Call it before other methods. `connect()` returns the selected account
 without pairing or a connection approval; risky sites and failed scans still
 require warning acknowledgment. Every signing request requires native approval.
-Connecting a wallet does not authenticate a website session.
+Connecting a wallet does not authenticate a website session by itself. When the
+wallet allows silent sign-in for a site, `connect()` also returns `auth`: a
+SEP-10 challenge the wallet fetched from the site's `/.well-known/stellar.toml`
+`WEB_AUTH_ENDPOINT`, verified against the TOML `SIGNING_KEY`, and
+countersigned. Verify it locally exactly as you would a challenge you fetched
+yourself, then submit it to your session endpoint. When `auth` is absent, run
+your usual challenge flow; the wallet may still prompt for that signature.
 
-| Method                                 | Result                                    |
-| -------------------------------------- | ----------------------------------------- |
-| `connect()` / `getAccount()`           | `{ address, chainId, networkPassphrase }` |
-| `signXDR({ xdr, chainId })`            | `{ signedXDR }`                           |
-| `signAndSubmitXDR({ xdr, chainId })`   | `{ status: "success" }`                   |
-| `signMessage({ message, chainId })`    | `{ signature }`                           |
-| `signAuthEntry({ entryXdr, chainId })` | `{ signedAuthEntry, signerAddress }`      |
-| `disconnect()`                         | `void`                                    |
+| Method                                 | Result                                           |
+| -------------------------------------- | ------------------------------------------------ |
+| `connect()`                            | `{ address, chainId, networkPassphrase, auth? }` |
+| `getAccount()`                         | `{ address, chainId, networkPassphrase }`        |
+| `signXDR({ xdr, chainId })`            | `{ signedXDR }`                                  |
+| `signAndSubmitXDR({ xdr, chainId })`   | `{ status: "success" }`                          |
+| `signMessage({ message, chainId })`    | `{ signature }`                                  |
+| `signAuthEntry({ entryXdr, chainId })` | `{ signedAuthEntry, signerAddress }`             |
+| `disconnect()`                         | `void`                                           |
 
 Supported chain IDs: `stellar:pubnet`, `stellar:testnet`. `getAccount()`
 requires a connected document and always asks the wallet: the SDK never caches

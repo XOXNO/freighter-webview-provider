@@ -5,6 +5,7 @@ export type {
   Account,
   AuthEntryParams,
   ChainId,
+  ConnectResult,
   EventListener,
   EventMap,
   InjectedBridge,
@@ -12,5 +13,6 @@ export type {
   ProviderEvent,
   RequestMap,
   RequestMethod,
+  Sep10Auth,
   XDRParams,
 } from './types';

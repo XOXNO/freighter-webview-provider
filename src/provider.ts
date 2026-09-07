@@ -2,6 +2,7 @@ import { toProviderError, WebViewProviderError } from './errors';
 import type {
   Account,
   AuthEntryParams,
+  ConnectResult,
   EventListener,
   InjectedBridge,
   MessageParams,
@@ -136,7 +137,7 @@ export class FreighterWebViewProvider {
     }
   }
 
-  connect(): Promise<Account> {
+  connect(): Promise<ConnectResult> {
     return this.request('freighter_connect');
   }
 

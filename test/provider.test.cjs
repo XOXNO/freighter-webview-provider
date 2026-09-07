@@ -185,3 +185,27 @@ test('getInstance shares one provider', async () => {
   assert.equal(FreighterWebViewProvider.getInstance(), first);
   assert.equal(await first.init(), false);
 });
+
+test('connect passes a wallet-provided SEP-10 auth through untouched', async () => {
+  const auth = {
+    challengeXdr: 'c',
+    signedXdr: 's',
+    networkPassphrase: 'p',
+    homeDomain: 'xoxno.com',
+    webAuthEndpoint: 'https://api.xoxno.com/user/stellar/challenge',
+  };
+  install((input) =>
+    input.method === 'freighter_connect'
+      ? {
+          address: 'GA',
+          chainId: 'stellar:pubnet',
+          networkPassphrase: 'p',
+          auth,
+        }
+      : undefined,
+  );
+  const provider = new FreighterWebViewProvider();
+  await provider.init();
+  const result = await provider.connect();
+  assert.deepEqual(result.auth, auth);
+});
